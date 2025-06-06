@@ -29,10 +29,11 @@ app.mount("/static", StaticFiles(directory=static_path), name="static")
 
 class ImageRequest(BaseModel):
     img: str  # base64 编码的图片字符串
+    config: dict = None  # 自定义配置（可选）
 
 class DocumentScanRequest(BaseModel):
     img: str  # base64 编码的图片字符串
-    mode: str = "standard"  # 扫描模式: "standard", "ocr", "printing"
+    mode: str = "balanced"  # 扫描模式: "natural", "balanced", "standard", "ocr", "printing"
     config: dict = None  # 自定义配置（可选）
 
 @app.get("/")
@@ -68,8 +69,11 @@ async def process_image(request: ImageRequest):
 
         logger.info(f"开始处理图像，原始尺寸: {pil_image.size}")
 
+        # 准备处理配置
+        processing_config = request.config if request.config else {}
+        
         # 使用文档扫描器处理图像
-        scan_result = document_scanner.scan_document(pil_image)
+        scan_result = document_scanner.scan_document(pil_image, config=processing_config)
         processed_cv_image = scan_result['final_image']
         
         # 转换回PIL图像
@@ -137,6 +141,16 @@ async def scan_document(request: DocumentScanRequest):
             processed_cv_image = document_scanner.scan_for_ocr(cv_image)
         elif request.mode == "printing":
             processed_cv_image = document_scanner.scan_for_printing(cv_image)
+        elif request.mode == "balanced":
+            # 使用平衡配置，避免过度增白
+            balanced_config = document_scanner.get_balanced_config()
+            scan_result = document_scanner.scan_document(cv_image, config=balanced_config)
+            processed_cv_image = scan_result['final_image']
+        elif request.mode == "natural":
+            # 使用自然配置，最大程度保留原图特征
+            natural_config = document_scanner.get_natural_config()
+            scan_result = document_scanner.scan_document(cv_image, config=natural_config)
+            processed_cv_image = scan_result['final_image']
         elif request.mode == "custom" and request.config:
             scan_result = document_scanner.scan_document(cv_image, config=request.config)
             processed_cv_image = scan_result['final_image']
@@ -215,6 +229,8 @@ async def get_processing_config():
             "default_config": config,
             "supported_formats": document_scanner.get_supported_formats(),
             "scan_modes": {
+                "natural": "自然模式，最大程度保留原图特征（图片太暗时推荐）",
+                "balanced": "平衡模式，温和处理避免过度增白（默认推荐）",
                 "standard": "标准扫描模式，适合一般文档",
                 "ocr": "OCR优化模式，生成二值化图像便于文字识别",
                 "printing": "打印优化模式，保持高质量适合打印",
