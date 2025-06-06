@@ -44,8 +44,8 @@ class DocumentScanner:
             'background': {
                 'method': 'median_division',
                 'kernel_size': 31,
-                'brightness_adjustment': 1.25,
-                'contrast_adjustment': 1.12
+                'brightness_adjustment': 1.119,
+                'contrast_adjustment': 1.05,
             },
 
             # 二值化配置
