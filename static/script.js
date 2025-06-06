@@ -68,13 +68,6 @@ function initializeEventListeners() {
             return;
         }
         
-        // 回车键处理图片
-        if (e.key === 'Enter' && currentImageData && $('#processBtn').is(':visible')) {
-            e.preventDefault();
-            processImage();
-            return;
-        }
-        
         // ESC键关闭模态框
         if (e.key === 'Escape') {
             $('.modal').modal('hide');
@@ -90,15 +83,7 @@ function initializeEventListeners() {
         }
     });
 
-    // 处理按钮文本动画
-    $('#processBtn button').hover(
-        function() {
-            $(this).find('.btn-text').text('✨ 立即处理');
-        },
-        function() {
-            $(this).find('.btn-text').text('🚀 开始处理');
-        }
-    );
+
 }
 
 // 初始化页面动画
@@ -124,8 +109,32 @@ function initializeAnimations() {
 // 显示欢迎消息
 function showWelcomeMessage() {
     setTimeout(() => {
-        showToast('欢迎使用 DocuScan！您可以粘贴、拖拽或点击上传图片', 'info', 4000);
+        showToast('欢迎使用 DocuScan！选择图片即可自动开始处理', 'info', 4000);
     }, 1000);
+}
+
+// 更新处理占位符文本和进度
+function updateProcessingProgress() {
+    const steps = [
+        { text: 'AI正在分析图片...', detail: '分析图像结构和内容', progress: 20 },
+        { text: '正在优化画质...', detail: '调整亮度和对比度', progress: 40 },
+        { text: '正在增强细节...', detail: '锐化和降噪处理', progress: 60 },
+        { text: '正在优化色彩...', detail: '色彩平衡和饱和度', progress: 80 },
+        { text: '即将完成处理...', detail: '最终优化和压缩', progress: 95 }
+    ];
+    
+    let stepIndex = 0;
+    const interval = setInterval(() => {
+        if ($('#processingPlaceholder').is(':visible') && stepIndex < steps.length) {
+            const step = steps[stepIndex];
+            $('#processingPlaceholder p').text(step.text);
+            $('#processingStep').text(step.detail);
+            $('#processingProgress').css('width', step.progress + '%');
+            stepIndex++;
+        } else {
+            clearInterval(interval);
+        }
+    }, 1500);
 }
 
 // 处理图片文件
@@ -150,22 +159,12 @@ function handleImageFile(file) {
     reader.onload = function(e) {
         currentImageData = e.target.result;
         
-        // 更新图片预览
-        $('#originalImage').attr('src', currentImageData);
-        $('#originalImageCompare').attr('src', currentImageData);
-        
-        // 显示原始图片区域
-        $('#originalSection').show().addClass('fade-in');
-        $('#processBtn').show().addClass('fade-in');
-        $('#resultSection').hide();
+        // 隐藏所有提示
         hideAlerts();
         
-        // 平滑滚动到原始图片区域
-        smoothScrollTo('#originalSection');
-        
-        // 显示图片信息
-        showImageInfo(file);
-        showToast('图片上传成功，可以开始处理了！', 'success');
+        // 显示原始图片并开始处理
+        showOriginalImage(file);
+        processImage();
     };
     
     reader.onerror = function() {
@@ -187,38 +186,32 @@ function showImageLoadingState() {
 function hideImageLoadingState() {
     $('#pasteArea').removeClass('loading-state');
     $('#pasteArea .upload-icon').html('📸');
-    $('#pasteArea h4').text('拖拽、粘贴或点击上传图片');
+    $('#pasteArea h4').text('选择图片开始处理');
 }
 
-// 显示图片信息
-function showImageInfo(file) {
-    const format = getImageFormat(currentImageData);
-    const size = formatFileSize(file.size);
+// 显示原始图片
+function showOriginalImage(file) {
+    // 隐藏上传区域，显示原始图片容器
+    $('#pasteArea').hide();
+    $('#originalImageContainer').show();
     
-    // 创建图片信息显示
-    const infoHtml = `
-        <div class="image-info mt-2 p-3 bg-light rounded">
-            <div class="row text-center">
-                <div class="col-4">
-                    <small class="text-muted">格式</small>
-                    <div class="fw-bold">${format}</div>
-                </div>
-                <div class="col-4">
-                    <small class="text-muted">大小</small>
-                    <div class="fw-bold">${size}</div>
-                </div>
-                <div class="col-4">
-                    <small class="text-muted">状态</small>
-                    <div class="text-success fw-bold">已就绪</div>
-                </div>
-            </div>
-        </div>
-    `;
+    // 设置原始图片
+    $('#originalImage').attr('src', currentImageData);
     
-    // 移除旧的信息，添加新的
-    $('.image-info').remove();
-    $('#originalSection .image-container').after(infoHtml);
+    // 显示图片信息
+    const fileSize = formatFileSize(file.size);
+    const imageFormat = getImageFormat(file.type);
+    $('#imageInfo small').text(`${file.name} • ${fileSize} • ${imageFormat}`);
+    
+    hideImageLoadingState();
 }
+
+// 选择新图片
+function selectNewImage() {
+    $('#fileInput').click();
+}
+
+
 
 // 处理图片
 function processImage() {
@@ -227,7 +220,9 @@ function processImage() {
         return;
     }
 
-    // 显示处理状态
+    // 隐藏无图片占位符，显示处理状态
+    $('#noImagePlaceholder').hide();
+    $('#processingContainer').show();
     showProcessingState();
 
     // 发送请求
@@ -246,24 +241,32 @@ function processImage() {
             processedImageBlob = data;
             const imageUrl = URL.createObjectURL(data);
             
-            // 设置处理后的图片
-            $('#processedImage').attr('src', imageUrl);
+            // 完成进度条
+            $('#processingProgress').css('width', '100%');
+            $('#processingStep').text('处理完成！');
             
-            // 显示结果区域
-            $('#resultSection').show().addClass('fade-in');
-            
-            // 滚动到结果区域
-            smoothScrollTo('#resultSection');
-            
-            // 显示成功消息
-            showSuccess('🎉 图片处理完成！对比效果如上所示');
-            
-            // 添加处理完成动画
+            // 短暂延迟后隐藏处理容器，显示处理后的图片
             setTimeout(() => {
-                $('#processedImage').addClass('processing-complete');
-            }, 300);
+                $('#processingContainer').fadeOut(300, function() {
+                    $('#processedImage').attr('src', imageUrl);
+                    $('#processedImageContainer').show().addClass('fade-in processing-complete');
+                    
+                    // 添加处理完成的视觉提示
+                    showProcessingSuccess();
+                    
+                    // 显示成功消息
+                    setTimeout(() => {
+                        showSuccess('🎉 图片处理完成！');
+                    }, 300);
+                });
+            }, 800);
         },
         error: function(xhr, status, error) {
+            // 隐藏处理容器，显示无图片占位符
+            $('#processingContainer').hide();
+            $('#processedImageContainer').hide();
+            $('#noImagePlaceholder').show();
+            
             handleProcessingError(xhr, status, error);
         },
         complete: function() {
@@ -274,14 +277,12 @@ function processImage() {
 
 // 显示处理状态
 function showProcessingState() {
-    // 按钮状态
-    const $btn = $('#processBtn button');
-    $btn.addClass('btn-processing').prop('disabled', true);
-    $btn.find('.loading').show();
-    $btn.find('.btn-text').text('处理中...');
+    // 重置处理进度
+    $('#processingProgress').css('width', '0%');
+    $('#processingStep').text('正在初始化...');
     
-    // 显示处理遮罩
-    showProcessingOverlay();
+    // 开始更新处理进度
+    updateProcessingProgress();
     
     // 隐藏错误信息
     hideAlerts();
@@ -289,12 +290,7 @@ function showProcessingState() {
 
 // 隐藏处理状态
 function hideProcessingState() {
-    const $btn = $('#processBtn button');
-    $btn.removeClass('btn-processing').prop('disabled', false);
-    $btn.find('.loading').hide();
-    $btn.find('.btn-text').text('🚀 开始处理');
-    
-    hideProcessingOverlay();
+    hideImageLoadingState();
 }
 
 // 处理错误
@@ -321,6 +317,29 @@ function handleProcessingError(xhr, status, error) {
     showError(errorMsg);
 }
 
+// 显示处理成功的视觉反馈
+function showProcessingSuccess() {
+    // 添加成功状态标识
+    $('#processedImageContainer').addClass('processing-success');
+    
+    // 添加成功图标动画
+    const successIcon = $('<div class="success-badge">✓</div>');
+    $('#processedImageContainer').append(successIcon);
+    
+    // 移除成功状态
+    setTimeout(() => {
+        $('#processedImageContainer').removeClass('processing-success');
+        $('.success-badge').fadeOut(300, function() {
+            $(this).remove();
+        });
+    }, 2000);
+    
+    // 添加震动效果提醒用户
+    if (navigator.vibrate) {
+        navigator.vibrate([100, 50, 100]);
+    }
+}
+
 // 下载图片
 function downloadImage() {
     if (!processedImageBlob) {
@@ -344,6 +363,9 @@ function downloadImage() {
         
         showSuccess('📥 图片下载完成！已保存到下载文件夹');
         
+        // 添加下载反馈动画
+        showDownloadSuccess();
+        
         // 下载统计（可选）
         trackDownload();
         
@@ -359,13 +381,18 @@ function resetTool() {
     currentImageData = null;
     processedImageBlob = null;
     
-    // 隐藏区域
-    $('#originalSection').hide().removeClass('fade-in slide-in');
-    $('#processBtn').hide().removeClass('fade-in slide-in');
-    $('#resultSection').hide().removeClass('fade-in slide-in');
+    // 显示上传区域，隐藏原始图片容器
+    $('#pasteArea').show();
+    $('#originalImageContainer').hide();
     
-    // 清理图片信息
-    $('.image-info').remove();
+    // 隐藏处理容器和结果容器，显示无图片占位符
+    $('#processingContainer').hide();
+    $('#processedImageContainer').hide().removeClass('fade-in processing-complete');
+    $('#noImagePlaceholder').show();
+    
+    // 重置处理进度
+    $('#processingProgress').css('width', '0%');
+    $('#processingStep').text('正在初始化...');
     
     // 重置文件输入
     $('#fileInput').val('');
@@ -381,7 +408,7 @@ function resetTool() {
     
     // 显示重置成功消息
     setTimeout(() => {
-        showToast('🔄 已重置，可以上传新的图片了', 'info');
+        showToast('🔄 已重置，选择新图片即可自动处理', 'info');
     }, 500);
 }
 
@@ -419,27 +446,14 @@ function hideAlerts() {
 
 // 显示处理遮罩
 function showProcessingOverlay() {
-    $('#processingOverlay').css('display', 'flex').hide().fadeIn(300);
-    
-    // 添加处理进度动画
-    let progress = 0;
-    const progressInterval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress > 90) progress = 90;
-        
-        $('.progress-bar').css('width', progress + '%');
-        
-        if (!$('#processingOverlay').is(':visible')) {
-            clearInterval(progressInterval);
-        }
-    }, 500);
+    // 不再显示处理遮罩，因为已经有了对比UI中的进度显示
+    // $('#processingOverlay').css('display', 'flex').hide().fadeIn(300);
 }
 
 // 隐藏处理遮罩
 function hideProcessingOverlay() {
-    $('#processingOverlay').fadeOut(300, function() {
-        $('.progress-bar').css('width', '0%');
-    });
+    // 不需要隐藏处理遮罩，因为没有显示
+    // $('#processingOverlay').fadeOut(300);
 }
 
 // 显示图片放大模态框
@@ -541,6 +555,19 @@ function getImageFormat(dataUrl) {
     if (dataUrl.startsWith('data:image/svg')) return 'SVG';
     if (dataUrl.startsWith('data:image/bmp')) return 'BMP';
     return 'Unknown';
+}
+
+// 显示下载成功反馈
+function showDownloadSuccess() {
+    const downloadBtn = $('.action-buttons .btn-success');
+    const originalText = downloadBtn.html();
+    
+    // 短暂改变按钮状态
+    downloadBtn.html('✅ 下载成功').addClass('btn-success-feedback');
+    
+    setTimeout(() => {
+        downloadBtn.html(originalText).removeClass('btn-success-feedback');
+    }, 2000);
 }
 
 // 下载统计（可选功能）
