@@ -469,7 +469,7 @@ body {
     min-height: 350px;
 }
 
-.processed-image-container::before {
+/* .processed-image-container::before {
     content: '';
     position: absolute;
     top: 0;
@@ -478,7 +478,7 @@ body {
     height: 4px;
     background: linear-gradient(135deg, var(--success-color), #059669);
     border-radius: var(--border-radius) var(--border-radius) 0 0;
-}
+} */
 
 .processed-image-container h4 {
     color: var(--success-color);
