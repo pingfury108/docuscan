@@ -47,13 +47,6 @@ tmp/
 .git/
 .gitignore
 
-# Documentation
-README.md
-*.md
-
-# Development dependencies
-requirements-dev.lock
-
 # Docker
 Dockerfile
 docker-compose.yml
