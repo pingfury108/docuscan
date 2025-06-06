@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocuScan - 智能图片处理工具</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <!-- 头部区域 -->
+    <div class="header-section">
+        <div class="container">
+            <h1>✨ DocuScan</h1>
+            <p>智能图片处理工具 - 让您的图片更清晰更专业</p>
+        </div>
+    </div>
+
+    <!-- 主要内容区域 -->
+    <div class="container">
+        <!-- 上传区域卡片 -->
+        <div class="main-card">
+            <div class="paste-area" id="pasteArea">
+                <div class="upload-icon">📸</div>
+                <h4>拖拽、粘贴或点击上传图片</h4>
+                <p>支持 JPEG, PNG, GIF, BMP, WEBP 等格式</p>
+                <p class="small">
+                    <span class="badge bg-primary me-2">Ctrl+V</span>粘贴 
+                    <span class="badge bg-secondary me-2">拖拽</span>上传 
+                    <span class="badge bg-info">点击</span>选择
+                </p>
+                <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            </div>
+        </div>
+
+        <!-- 原始图片预览区域 -->
+        <div class="main-card original-section" id="originalSection">
+            <h3>📷 原始图片预览</h3>
+            <div class="image-container">
+                <img id="originalImage" class="image-preview" alt="原始图片">
+            </div>
+        </div>
+
+        <!-- 处理按钮区域 -->
+        <div class="process-btn" id="processBtn">
+            <button class="btn btn-primary btn-lg" onclick="processImage()">
+                <span class="loading spinner-border spinner-border-sm me-2" role="status"></span>
+                <span class="btn-text">🚀 开始处理</span>
+            </button>
+            <p>按 <kbd>Enter</kbd> 键快速处理</p>
+        </div>
+
+        <!-- 结果对比区域 -->
+        <div class="main-card result-section" id="resultSection">
+            <h3>🔍 图片对比结果</h3>
+            
+            <!-- 图片对比网格 -->
+            <div class="image-comparison">
+                <div class="image-box">
+                    <h4>📤 处理前</h4>
+                    <div class="image-container">
+                        <img id="originalImageCompare" class="image-preview" alt="原始图片">
+                    </div>
+                </div>
+                
+                <div class="image-box">
+                    <h4>✨ 处理后</h4>
+                    <div class="image-container">
+                        <img id="processedImage" class="image-preview" alt="处理后图片">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作按钮组 -->
+            <div class="action-buttons">
+                <button class="btn btn-success btn-lg" onclick="downloadImage()">
+                    💾 下载处理后图片
+                </button>
+                <button class="btn btn-secondary btn-lg" onclick="resetTool()">
+                    🔄 重新开始
+                </button>
+            </div>
+            
+            <div class="text-center mt-3">
+                <p class="text-muted small">
+                    按 <kbd>Ctrl+R</kbd> 重置 | 处理后的图片已优化压缩
+                </p>
+            </div>
+        </div>
+
+        <!-- 错误提示 -->
+        <div class="alert alert-danger" id="errorAlert" style="display: none;">
+            <div class="d-flex align-items-center">
+                <span class="me-2">⚠️</span>
+                <div>
+                    <strong>处理失败</strong>
+                    <div id="errorMessage"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 成功提示 -->
+        <div class="alert alert-success" id="successAlert" style="display: none;">
+            <div class="d-flex align-items-center">
+                <span class="me-2">✅</span>
+                <div>
+                    <strong>操作成功</strong>
+                    <div id="successMessage"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 处理中遮罩层 -->
+    <div class="processing-overlay" id="processingOverlay">
+        <div class="processing-modal">
+            <div class="spinner-large"></div>
+            <h4>🔄 正在处理图片</h4>
+            <p class="text-muted">AI正在优化您的图片，请稍候...</p>
+            <div class="progress mt-3" style="height: 6px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                     role="progressbar" style="width: 100%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用说明模态框 -->
+    <div class="modal fade" id="helpModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content" style="border-radius: var(--border-radius-lg); border: none;">
+                <div class="modal-header" style="border-bottom: 1px solid var(--border-color);">
+                    <h5 class="modal-title d-flex align-items-center">
+                        <span class="me-2">📖</span>使用说明
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-primary">📤 上传方式</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <span class="badge bg-primary me-2">Ctrl+V</span>
+                                    直接粘贴剪贴板图片
+                                </li>
+                                <li class="mb-2">
+                                    <span class="badge bg-secondary me-2">拖拽</span>
+                                    拖拽图片到上传区域
+                                </li>
+                                <li class="mb-2">
+                                    <span class="badge bg-info me-2">点击</span>
+                                    点击区域选择本地文件
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-success">⌨️ 快捷键</h6>
+                            <ul class="list-unstyled">
+                                <li class="mb-2">
+                                    <kbd>Enter</kbd> - 处理图片
+                                </li>
+                                <li class="mb-2">
+                                    <kbd>Ctrl+R</kbd> - 重置工具
+                                </li>
+                                <li class="mb-2">
+                                    <kbd>Esc</kbd> - 关闭弹窗
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <hr>
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="text-warning">📁 支持格式</h6>
+                            <div class="d-flex flex-wrap gap-2">
+                                <span class="badge bg-light text-dark">JPEG</span>
+                                <span class="badge bg-light text-dark">PNG</span>
+                                <span class="badge bg-light text-dark">GIF</span>
+                                <span class="badge bg-light text-dark">BMP</span>
+                                <span class="badge bg-light text-dark">WEBP</span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-danger">⚠️ 限制说明</h6>
+                            <ul class="list-unstyled small text-muted">
+                                <li>• 文件大小：最大 10MB</li>
+                                <li>• 处理时间：通常 3-10 秒</li>
+                                <li>• 输出格式：优化后的 JPEG</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-info mt-3">
+                        <div class="d-flex align-items-start">
+                            <span class="me-2">💡</span>
+                            <div>
+                                <strong>处理说明：</strong>
+                                <p class="mb-0 small">
+                                    本工具使用AI算法对图片进行智能优化，包括降噪、锐化、色彩增强等处理，
+                                    让您的图片看起来更清晰专业。所有处理都在本地完成，保护您的隐私。
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-top: 1px solid var(--border-color);">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">
+                        明白了
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 帮助按钮 -->
+    <div class="help-button">
+        <button type="button" class="btn" data-bs-toggle="modal" data-bs-target="#helpModal" 
+                title="查看使用说明">
+            ❓
+        </button>
+    </div>
+
+    <!-- 版权信息 -->
+    <footer class="text-center mt-5 pb-4">
+        <div class="container">
+            <p class="text-white-50 small mb-0">
+                © 2024 DocuScan | 智能图片处理工具 | 
+                <a href="#" class="text-white-50 text-decoration-none">隐私政策</a>
+            </p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
