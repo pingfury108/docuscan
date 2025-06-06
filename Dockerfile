@@ -16,10 +16,12 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
+RUN pip install uv
+
 # 复制项目文件
 COPY . .
 
-RUN pip install --no-cache-dir -r requirements.lock
+RUN uv pip install --no-cache --system -r requirements.lock
 
 # 暴露端口
 EXPOSE 8000
