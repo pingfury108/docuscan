@@ -52,6 +52,11 @@ markupsafe==3.0.2
     # via jinja2
 mdurl==0.1.2
     # via markdown-it-py
+numpy==2.2.6
+    # via docuscan
+    # via opencv-python
+opencv-python==4.11.0.86
+    # via docuscan
 pillow==11.2.1
     # via docuscan
 pydantic==2.11.5
