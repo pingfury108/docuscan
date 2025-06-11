@@ -59,12 +59,17 @@
                             id="originalImageContainer"
                             style="display: none"
                         >
-                            <div class="image-container">
+                            <div class="image-container position-relative">
                                 <img
                                     id="originalImage"
                                     class="image-preview"
                                     alt="原始图片"
                                 />
+                                <button class="btn btn-sm btn-outline-light copy-as-file-btn" 
+                                        onclick="copyOriginalImageAsFile(event)" 
+                                        title="复制原始图片为文件格式">
+                                    📁 复制为文件
+                                </button>
                             </div>
                             <div class="image-info" id="imageInfo">
                                 <small class="text-muted"></small>
@@ -140,12 +145,17 @@
                             id="processedImageContainer"
                             style="display: none"
                         >
-                            <div class="image-container">
+                            <div class="image-container position-relative">
                                 <img
                                     id="processedImage"
                                     class="image-preview"
                                     alt="处理后图片"
                                 />
+                                <button class="btn btn-sm btn-outline-light copy-as-file-btn" 
+                                        onclick="copyCurrentImageAsFile(event)" 
+                                        title="复制为文件格式，可在其他系统粘贴上传">
+                                    📁 复制为文件
+                                </button>
                             </div>
 
                             <!-- 操作按钮组 -->

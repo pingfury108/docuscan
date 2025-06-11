@@ -1,5 +1,6 @@
 let currentImageData = null;
 let processedImageBlob = null;
+let processedImageBase64 = null;
 
 // 页面加载完成后初始化
 $(document).ready(function() {
@@ -239,27 +240,33 @@ function processImage() {
         timeout: 60000, // 60秒超时
         success: function(data, status, xhr) {
             processedImageBlob = data;
-            const imageUrl = URL.createObjectURL(data);
             
-            // 完成进度条
-            $('#processingProgress').css('width', '100%');
-            $('#processingStep').text('处理完成！');
-            
-            // 短暂延迟后隐藏处理容器，显示处理后的图片
-            setTimeout(() => {
-                $('#processingContainer').fadeOut(300, function() {
-                    $('#processedImage').attr('src', imageUrl);
-                    $('#processedImageContainer').show().addClass('fade-in processing-complete');
-                    
-                    // 添加处理完成的视觉提示
-                    showProcessingSuccess();
-                    
-                    // 显示成功消息
-                    setTimeout(() => {
-                        showSuccess('🎉 图片处理完成！');
-                    }, 300);
-                });
-            }, 800);
+            // 将blob转换为base64格式
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processedImageBase64 = e.target.result;
+                
+                // 完成进度条
+                $('#processingProgress').css('width', '100%');
+                $('#processingStep').text('处理完成！');
+                
+                // 短暂延迟后隐藏处理容器，显示处理后的图片
+                setTimeout(() => {
+                    $('#processingContainer').fadeOut(300, function() {
+                        $('#processedImage').attr('src', processedImageBase64);
+                        $('#processedImageContainer').show().addClass('fade-in processing-complete');
+                        
+                        // 添加处理完成的视觉提示
+                        showProcessingSuccess();
+                        
+                        // 显示成功消息
+                        setTimeout(() => {
+                            showSuccess('🎉 图片处理完成！');
+                        }, 300);
+                    });
+                }, 800);
+            };
+            reader.readAsDataURL(data);
         },
         error: function(xhr, status, error) {
             // 隐藏处理容器，显示无图片占位符
@@ -380,6 +387,7 @@ function resetTool() {
     // 重置数据
     currentImageData = null;
     processedImageBlob = null;
+    processedImageBase64 = null;
     
     // 显示上传区域，隐藏原始图片容器
     $('#pasteArea').show();
@@ -574,6 +582,231 @@ function showDownloadSuccess() {
 function trackDownload() {
     // 这里可以添加下载统计逻辑
     console.log('Image downloaded at:', new Date().toISOString());
+}
+
+// 将图片转换为PNG格式
+async function convertImageToPNG(blob) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            
+            // 绘制图片到canvas
+            ctx.drawImage(img, 0, 0);
+            
+            // 转换为PNG格式
+            canvas.toBlob(function(pngBlob) {
+                // 清理对象URL
+                URL.revokeObjectURL(img.src);
+                
+                if (pngBlob) {
+                    resolve(pngBlob);
+                } else {
+                    reject(new Error('PNG转换失败'));
+                }
+            }, 'image/png', 1.0);
+        };
+        
+        img.onerror = function() {
+            // 清理对象URL
+            URL.revokeObjectURL(img.src);
+            reject(new Error('图片加载失败'));
+        };
+        
+        // 从blob创建对象URL
+        const objectURL = URL.createObjectURL(blob);
+        img.src = objectURL;
+    });
+}
+
+// 多种格式尝试写入剪贴板
+async function writeToClipboardWithFallback(blob, mimeType) {
+    const supportedTypes = [
+        'image/png',
+        'image/jpeg', 
+        'image/webp',
+        'image/gif'
+    ];
+    
+    // 首先尝试指定的格式
+    try {
+        const clipboardItem = new ClipboardItem({
+            [mimeType]: blob
+        });
+        await navigator.clipboard.write([clipboardItem]);
+        return;
+    } catch (error) {
+        console.warn(`${mimeType}格式写入失败:`, error.message);
+    }
+    
+    // 如果原格式失败，尝试PNG格式
+    if (mimeType !== 'image/png') {
+        try {
+            console.log('尝试PNG格式写入...');
+            const pngBlob = await convertImageToPNG(blob);
+            const clipboardItem = new ClipboardItem({
+                'image/png': pngBlob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            console.log('PNG格式写入成功');
+            return;
+        } catch (error) {
+            console.warn('PNG格式写入失败:', error.message);
+        }
+    }
+    
+    // 最后的降级尝试
+    for (const type of supportedTypes) {
+        if (type === mimeType || type === 'image/png') continue;
+        
+        try {
+            console.log(`尝试${type}格式写入...`);
+            let convertedBlob = blob;
+            
+            if (type !== blob.type) {
+                // 这里可以添加其他格式的转换逻辑
+                // 目前主要支持PNG转换
+                continue;
+            }
+            
+            const clipboardItem = new ClipboardItem({
+                [type]: convertedBlob
+            });
+            await navigator.clipboard.write([clipboardItem]);
+            console.log(`${type}格式写入成功`);
+            return;
+        } catch (error) {
+            console.warn(`${type}格式写入失败:`, error.message);
+        }
+    }
+    
+    // 所有格式都失败
+    throw new Error('所有支持的图片格式都无法写入剪贴板');
+}
+
+// 复制当前处理后的图片为文件格式
+function copyCurrentImageAsFile(event) {
+    if (processedImageBase64) {
+        copyImageAsFile(processedImageBase64, 'processed', event);
+    } else {
+        showError('没有可复制的处理后图片');
+    }
+}
+
+// 复制原始图片为文件格式
+function copyOriginalImageAsFile(event) {
+    if (currentImageData) {
+        copyImageAsFile(currentImageData, 'original', event);
+    } else {
+        showError('没有可复制的原始图片');
+    }
+}
+
+// 通用复制图片为文件的函数
+async function copyImageAsFile(src, imageType = 'image', event = null) {
+    // 检查浏览器支持
+    if (!navigator.clipboard || !navigator.clipboard.write) {
+        showError('您的浏览器不支持此功能，建议使用最新版 Chrome 或 Firefox');
+        return;
+    }
+
+    try {
+        showToast('📋 正在准备复制...', 'info', 1000);
+
+        let blob;
+        
+        // 处理base64和其他URL
+        if (src.startsWith('data:')) {
+            // base64转blob
+            console.log(`复制${imageType}图片，数据源：base64，长度：${src.length}`);
+            const response = await fetch(src);
+            blob = await response.blob();
+        } else {
+            // 其他URL
+            console.log(`复制${imageType}图片，数据源：URL，地址：${src}`);
+            const response = await fetch(src);
+            blob = await response.blob();
+        }
+        
+        console.log(`Blob类型：${blob.type}，大小：${blob.size}字节`);
+        
+        // 检查并转换为浏览器支持的格式
+        let finalBlob = blob;
+        let finalMimeType = blob.type;
+        
+        // 浏览器通常更好地支持 PNG 格式
+        if (blob.type === 'image/jpeg' || blob.type === 'image/jpg') {
+            console.log('检测到JPEG格式，转换为PNG以提高兼容性');
+            finalBlob = await convertImageToPNG(blob);
+            finalMimeType = 'image/png';
+            console.log(`转换后的Blob类型：${finalBlob.type}，大小：${finalBlob.size}字节`);
+        }
+        
+        // 生成有意义的文件名
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
+        const extension = finalMimeType.split('/')[1] || 'png';
+        const prefix = imageType === 'processed' ? 'docuscan_enhanced' : 
+                      imageType === 'original' ? 'docuscan_original' : 'docuscan_image';
+        const filename = `${prefix}_${timestamp}.${extension}`;
+        
+        // 尝试多种格式写入剪贴板
+        console.log(`尝试写入剪贴板，MIME类型：${finalMimeType}`);
+        await writeToClipboardWithFallback(finalBlob, finalMimeType);
+        console.log('剪贴板写入成功');
+        
+        showToast(`✅ 已复制为文件: ${filename}`, 'success', 4000);
+        
+        // 添加复制成功的视觉反馈
+        if (event && event.target) {
+            const copyBtn = event.target;
+            const originalText = copyBtn.innerHTML;
+            copyBtn.innerHTML = '✅ 已复制';
+            copyBtn.classList.add('btn-success');
+            
+            setTimeout(() => {
+                copyBtn.innerHTML = originalText;
+                copyBtn.classList.remove('btn-success');
+            }, 2000);
+        }
+        
+    } catch (error) {
+        console.error('复制失败:', error);
+        console.error('错误类型:', error.name);
+        console.error('错误消息:', error.message);
+        
+        // 根据错误类型提供不同的提示
+        let errorMsg = '复制失败，请重试';
+        if (error.name === 'NotAllowedError') {
+            if (error.message.includes('not supported on write')) {
+                errorMsg = '图片格式不被浏览器支持，正在尝试转换格式...';
+                // 这种情况通常不会到达这里，因为我们有降级处理
+            } else {
+                errorMsg = `复制被拒绝：${imageType === 'processed' ? '处理后' : '原始'}图片权限不足`;
+                console.error('可能原因：浏览器安全策略或用户拒绝权限');
+            }
+        } else if (error.name === 'TypeError') {
+            errorMsg = '图片格式不支持，请重新处理图片';
+        } else if (error.message.includes('fetch')) {
+            errorMsg = '图片加载失败，请重试';
+        } else if (error.name === 'DataCloneError') {
+            errorMsg = '图片数据无法复制，请尝试重新处理';
+        } else if (error.message.includes('PNG转换失败')) {
+            errorMsg = '图片格式转换失败，请尝试重新上传图片';
+        } else if (error.message.includes('所有支持的图片格式都无法写入剪贴板')) {
+            errorMsg = '您的浏览器不支持此功能，建议使用最新版Chrome、Firefox或Edge';
+        }
+        
+        showToast(`❌ ${errorMsg}`, 'error', 5000);
+        
+        // 提供降级方案提示
+        setTimeout(() => {
+            showToast('💡 提示：您也可以右键图片选择"图片另存为"', 'info', 4000);
+        }, 1000);
+    }
 }
 
 // 页面离开确认

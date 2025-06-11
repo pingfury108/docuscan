@@ -183,6 +183,61 @@ body {
     position: relative;
 }
 
+/* 复制为文件按钮 */
+.copy-as-file-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    opacity: 0;
+    transition: var(--transition);
+    backdrop-filter: blur(10px);
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-weight: 500;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.copy-as-file-btn:hover {
+    background-color: rgba(0, 0, 0, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.image-container:hover .copy-as-file-btn {
+    opacity: 1;
+}
+
+/* 响应式：移动端时始终显示按钮 */
+@media (max-width: 768px) {
+    .copy-as-file-btn {
+        opacity: 1;
+        position: static;
+        margin-top: 0.5rem;
+        display: inline-block;
+        background-color: rgba(0, 0, 0, 0.85) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        color: white !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+    }
+    
+    .image-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+}
+
 /* 原始图片容器 */
 .original-image-container {
     text-align: center;
@@ -447,11 +502,6 @@ body {
     transform: scale(1.05);
     box-shadow: 0 8px 16px rgba(34, 197, 94, 0.3) !important;
     transition: all 0.3s ease !important;
-}
-
-    margin-top: 1rem;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
 }
 
 /* 处理完成的图片容器 */
