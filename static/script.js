@@ -68,7 +68,7 @@ function initializeEventListeners() {
             resetTool();
             return;
         }
-        
+
         // ESC键关闭模态框
         if (e.key === 'Escape') {
             $('.modal').modal('hide');
@@ -91,7 +91,7 @@ function initializeEventListeners() {
 function initializeAnimations() {
     // 页面加载动画
     $('body').addClass('fade-in');
-    
+
     // 滚动到可见区域时触发动画
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
@@ -123,7 +123,7 @@ function updateProcessingProgress() {
         { text: '正在优化色彩...', detail: '色彩平衡和饱和度', progress: 80 },
         { text: '即将完成处理...', detail: '最终优化和压缩', progress: 95 }
     ];
-    
+
     let stepIndex = 0;
     const interval = setInterval(() => {
         if ($('#processingPlaceholder').is(':visible') && stepIndex < steps.length) {
@@ -159,20 +159,20 @@ function handleImageFile(file) {
     const reader = new FileReader();
     reader.onload = function(e) {
         currentImageData = e.target.result;
-        
+
         // 隐藏所有提示
         hideAlerts();
-        
+
         // 显示原始图片并开始处理
         showOriginalImage(file);
         processImage();
     };
-    
+
     reader.onerror = function() {
         showError('读取图片文件时发生错误，请重试');
         hideImageLoadingState();
     };
-    
+
     reader.readAsDataURL(file);
 }
 
@@ -195,15 +195,15 @@ function showOriginalImage(file) {
     // 隐藏上传区域，显示原始图片容器
     $('#pasteArea').hide();
     $('#originalImageContainer').show();
-    
+
     // 设置原始图片
     $('#originalImage').attr('src', currentImageData);
-    
+
     // 显示图片信息
     const fileSize = formatFileSize(file.size);
     const imageFormat = getImageFormat(file.type);
     $('#imageInfo small').text(`${file.name} • ${fileSize} • ${imageFormat}`);
-    
+
     hideImageLoadingState();
 }
 
@@ -240,25 +240,25 @@ function processImage() {
         timeout: 60000, // 60秒超时
         success: function(data, status, xhr) {
             processedImageBlob = data;
-            
+
             // 将blob转换为base64格式
             const reader = new FileReader();
             reader.onload = function(e) {
                 processedImageBase64 = e.target.result;
-                
+
                 // 完成进度条
                 $('#processingProgress').css('width', '100%');
                 $('#processingStep').text('处理完成！');
-                
+
                 // 短暂延迟后隐藏处理容器，显示处理后的图片
                 setTimeout(() => {
                     $('#processingContainer').fadeOut(300, function() {
                         $('#processedImage').attr('src', processedImageBase64);
                         $('#processedImageContainer').show().addClass('fade-in processing-complete');
-                        
+
                         // 添加处理完成的视觉提示
                         showProcessingSuccess();
-                        
+
                         // 显示成功消息
                         setTimeout(() => {
                             showSuccess('🎉 图片处理完成！');
@@ -273,7 +273,7 @@ function processImage() {
             $('#processingContainer').hide();
             $('#processedImageContainer').hide();
             $('#noImagePlaceholder').show();
-            
+
             handleProcessingError(xhr, status, error);
         },
         complete: function() {
@@ -287,10 +287,10 @@ function showProcessingState() {
     // 重置处理进度
     $('#processingProgress').css('width', '0%');
     $('#processingStep').text('正在初始化...');
-    
+
     // 开始更新处理进度
     updateProcessingProgress();
-    
+
     // 隐藏错误信息
     hideAlerts();
 }
@@ -303,7 +303,7 @@ function hideProcessingState() {
 // 处理错误
 function handleProcessingError(xhr, status, error) {
     let errorMsg = '处理图片时发生错误';
-    
+
     if (status === 'timeout') {
         errorMsg = '⏰ 请求超时，图片可能过大或网络较慢，请重试';
     } else if (xhr.status === 413) {
@@ -320,7 +320,7 @@ function handleProcessingError(xhr, status, error) {
     } else if (xhr.status >= 500) {
         errorMsg = '🔧 服务器暂时不可用，请稍后重试';
     }
-    
+
     showError(errorMsg);
 }
 
@@ -328,11 +328,11 @@ function handleProcessingError(xhr, status, error) {
 function showProcessingSuccess() {
     // 添加成功状态标识
     $('#processedImageContainer').addClass('processing-success');
-    
+
     // 添加成功图标动画
     const successIcon = $('<div class="success-badge">✓</div>');
     $('#processedImageContainer').append(successIcon);
-    
+
     // 移除成功状态
     setTimeout(() => {
         $('#processedImageContainer').removeClass('processing-success');
@@ -340,7 +340,7 @@ function showProcessingSuccess() {
             $(this).remove();
         });
     }, 2000);
-    
+
     // 添加震动效果提醒用户
     if (navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
@@ -358,24 +358,24 @@ function downloadImage() {
         const url = URL.createObjectURL(processedImageBlob);
         const a = document.createElement('a');
         a.href = url;
-        
+
         // 生成有意义的文件名
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
         a.download = `docuscan_enhanced_${timestamp}.jpg`;
-        
+
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         showSuccess('📥 图片下载完成！已保存到下载文件夹');
-        
+
         // 添加下载反馈动画
         showDownloadSuccess();
-        
+
         // 下载统计（可选）
         trackDownload();
-        
+
     } catch (error) {
         showError('下载失败，请重试');
         console.error('Download error:', error);
@@ -388,32 +388,32 @@ function resetTool() {
     currentImageData = null;
     processedImageBlob = null;
     processedImageBase64 = null;
-    
+
     // 显示上传区域，隐藏原始图片容器
     $('#pasteArea').show();
     $('#originalImageContainer').hide();
-    
+
     // 隐藏处理容器和结果容器，显示无图片占位符
     $('#processingContainer').hide();
     $('#processedImageContainer').hide().removeClass('fade-in processing-complete');
     $('#noImagePlaceholder').show();
-    
+
     // 重置处理进度
     $('#processingProgress').css('width', '0%');
     $('#processingStep').text('正在初始化...');
-    
+
     // 重置文件输入
     $('#fileInput').val('');
-    
+
     // 隐藏提示
     hideAlerts();
-    
+
     // 重置上传区域
     hideImageLoadingState();
-    
+
     // 平滑滚动到顶部
     smoothScrollTo('body');
-    
+
     // 显示重置成功消息
     setTimeout(() => {
         showToast('🔄 已重置，选择新图片即可自动处理', 'info');
@@ -424,12 +424,12 @@ function resetTool() {
 function showError(message) {
     $('#errorMessage').text(message);
     $('#errorAlert').show().addClass('fade-in');
-    
+
     // 滚动到错误消息
     setTimeout(() => {
         smoothScrollTo('#errorAlert');
     }, 100);
-    
+
     // 自动隐藏
     setTimeout(() => {
         $('#errorAlert').fadeOut();
@@ -440,7 +440,7 @@ function showError(message) {
 function showSuccess(message) {
     $('#successMessage').text(message);
     $('#successAlert').show().addClass('fade-in');
-    
+
     // 自动隐藏
     setTimeout(() => {
         $('#successAlert').fadeOut();
@@ -472,19 +472,19 @@ function showImageModal(src) {
                 <div class="modal-content bg-transparent border-0">
                     <div class="modal-body p-0 text-center">
                         <img src="${src}" class="img-fluid" style="max-height: 90vh; border-radius: var(--border-radius);">
-                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3" 
+                        <button type="button" class="btn-close btn-close-white position-absolute top-0 end-0 m-3"
                                 data-bs-dismiss="modal"></button>
                     </div>
                 </div>
             </div>
         </div>
     `;
-    
+
     // 移除旧模态框，添加新的
     $('#imageModal').remove();
     $('body').append(modalHtml);
     $('#imageModal').modal('show');
-    
+
     // 模态框关闭后清理
     $('#imageModal').on('hidden.bs.modal', function() {
         $(this).remove();
@@ -500,35 +500,35 @@ function showToast(message, type = 'info', duration = 3000) {
         warning: '⚠️',
         info: 'ℹ️'
     };
-    
+
     const toastHtml = `
-        <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0" 
+        <div class="toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0"
              id="${toastId}" role="alert">
             <div class="d-flex">
                 <div class="toast-body">
                     ${icons[type]} ${message}
                 </div>
-                <button type="button" class="btn-close btn-close-white me-2 m-auto" 
+                <button type="button" class="btn-close btn-close-white me-2 m-auto"
                         data-bs-dismiss="toast"></button>
             </div>
         </div>
     `;
-    
+
     // 创建toast容器（如果不存在）
     if ($('.toast-container').length === 0) {
         $('body').append(`
             <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11000;"></div>
         `);
     }
-    
+
     $('.toast-container').append(toastHtml);
-    
+
     const toast = new bootstrap.Toast($('#' + toastId)[0], {
         delay: duration
     });
-    
+
     toast.show();
-    
+
     // 清理
     $('#' + toastId).on('hidden.bs.toast', function() {
         $(this).remove();
@@ -569,10 +569,10 @@ function getImageFormat(dataUrl) {
 function showDownloadSuccess() {
     const downloadBtn = $('.action-buttons .btn-success');
     const originalText = downloadBtn.html();
-    
+
     // 短暂改变按钮状态
     downloadBtn.html('✅ 下载成功').addClass('btn-success-feedback');
-    
+
     setTimeout(() => {
         downloadBtn.html(originalText).removeClass('btn-success-feedback');
     }, 2000);
@@ -590,19 +590,19 @@ async function convertImageToPNG(blob) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
-        
+
         img.onload = function() {
             canvas.width = img.width;
             canvas.height = img.height;
-            
+
             // 绘制图片到canvas
             ctx.drawImage(img, 0, 0);
-            
+
             // 转换为PNG格式
             canvas.toBlob(function(pngBlob) {
                 // 清理对象URL
                 URL.revokeObjectURL(img.src);
-                
+
                 if (pngBlob) {
                     resolve(pngBlob);
                 } else {
@@ -610,13 +610,13 @@ async function convertImageToPNG(blob) {
                 }
             }, 'image/png', 1.0);
         };
-        
+
         img.onerror = function() {
             // 清理对象URL
             URL.revokeObjectURL(img.src);
             reject(new Error('图片加载失败'));
         };
-        
+
         // 从blob创建对象URL
         const objectURL = URL.createObjectURL(blob);
         img.src = objectURL;
@@ -627,11 +627,11 @@ async function convertImageToPNG(blob) {
 async function writeToClipboardWithFallback(blob, mimeType) {
     const supportedTypes = [
         'image/png',
-        'image/jpeg', 
+        'image/jpeg',
         'image/webp',
         'image/gif'
     ];
-    
+
     // 首先尝试指定的格式
     try {
         const clipboardItem = new ClipboardItem({
@@ -642,7 +642,7 @@ async function writeToClipboardWithFallback(blob, mimeType) {
     } catch (error) {
         console.warn(`${mimeType}格式写入失败:`, error.message);
     }
-    
+
     // 如果原格式失败，尝试PNG格式
     if (mimeType !== 'image/png') {
         try {
@@ -658,21 +658,21 @@ async function writeToClipboardWithFallback(blob, mimeType) {
             console.warn('PNG格式写入失败:', error.message);
         }
     }
-    
+
     // 最后的降级尝试
     for (const type of supportedTypes) {
         if (type === mimeType || type === 'image/png') continue;
-        
+
         try {
             console.log(`尝试${type}格式写入...`);
             let convertedBlob = blob;
-            
+
             if (type !== blob.type) {
                 // 这里可以添加其他格式的转换逻辑
                 // 目前主要支持PNG转换
                 continue;
             }
-            
+
             const clipboardItem = new ClipboardItem({
                 [type]: convertedBlob
             });
@@ -683,7 +683,7 @@ async function writeToClipboardWithFallback(blob, mimeType) {
             console.warn(`${type}格式写入失败:`, error.message);
         }
     }
-    
+
     // 所有格式都失败
     throw new Error('所有支持的图片格式都无法写入剪贴板');
 }
@@ -718,7 +718,7 @@ async function copyImageAsFile(src, imageType = 'image', event = null) {
         showToast('📋 正在准备复制...', 'info', 1000);
 
         let blob;
-        
+
         // 处理base64和其他URL
         if (src.startsWith('data:')) {
             // base64转blob
@@ -731,13 +731,13 @@ async function copyImageAsFile(src, imageType = 'image', event = null) {
             const response = await fetch(src);
             blob = await response.blob();
         }
-        
+
         console.log(`Blob类型：${blob.type}，大小：${blob.size}字节`);
-        
+
         // 检查并转换为浏览器支持的格式
         let finalBlob = blob;
         let finalMimeType = blob.type;
-        
+
         // 浏览器通常更好地支持 PNG 格式
         if (blob.type === 'image/jpeg' || blob.type === 'image/jpg') {
             console.log('检测到JPEG格式，转换为PNG以提高兼容性');
@@ -745,39 +745,39 @@ async function copyImageAsFile(src, imageType = 'image', event = null) {
             finalMimeType = 'image/png';
             console.log(`转换后的Blob类型：${finalBlob.type}，大小：${finalBlob.size}字节`);
         }
-        
+
         // 生成有意义的文件名
         const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
         const extension = finalMimeType.split('/')[1] || 'png';
-        const prefix = imageType === 'processed' ? 'docuscan_enhanced' : 
+        const prefix = imageType === 'processed' ? 'docuscan_enhanced' :
                       imageType === 'original' ? 'docuscan_original' : 'docuscan_image';
         const filename = `${prefix}_${timestamp}.${extension}`;
-        
+
         // 尝试多种格式写入剪贴板
         console.log(`尝试写入剪贴板，MIME类型：${finalMimeType}`);
         await writeToClipboardWithFallback(finalBlob, finalMimeType);
         console.log('剪贴板写入成功');
-        
+
         showToast(`✅ 已复制为文件: ${filename}`, 'success', 4000);
-        
+
         // 添加复制成功的视觉反馈
         if (event && event.target) {
             const copyBtn = event.target;
             const originalText = copyBtn.innerHTML;
             copyBtn.innerHTML = '✅ 已复制';
             copyBtn.classList.add('btn-success');
-            
+
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
                 copyBtn.classList.remove('btn-success');
             }, 2000);
         }
-        
+
     } catch (error) {
         console.error('复制失败:', error);
         console.error('错误类型:', error.name);
         console.error('错误消息:', error.message);
-        
+
         // 根据错误类型提供不同的提示
         let errorMsg = '复制失败，请重试';
         if (error.name === 'NotAllowedError') {
@@ -799,9 +799,9 @@ async function copyImageAsFile(src, imageType = 'image', event = null) {
         } else if (error.message.includes('所有支持的图片格式都无法写入剪贴板')) {
             errorMsg = '您的浏览器不支持此功能，建议使用最新版Chrome、Firefox或Edge';
         }
-        
+
         showToast(`❌ ${errorMsg}`, 'error', 5000);
-        
+
         // 提供降级方案提示
         setTimeout(() => {
             showToast('💡 提示：您也可以右键图片选择"图片另存为"', 'info', 4000);
