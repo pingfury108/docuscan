@@ -3,6 +3,7 @@ from fastapi.responses import Response, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from typing import List, Tuple, Optional, Dict, Union
 import base64
 import io
 from PIL import Image
@@ -45,6 +46,18 @@ class DocumentScanRequest(BaseModel):
     img: str  # base64 编码的图片字符串
     mode: str = "balanced"  # 扫描模式: "natural", "balanced", "standard", "ocr", "printing"
     config: dict = None  # 自定义配置（可选）
+
+
+class Box(BaseModel):
+    points: List[Tuple[int, int]]  # 四个点的坐标 [(x1, y1), (x2, y2), (x3, y3), (x4, y4)]
+    color: Optional[Union[List[int], str]] = None  # 颜色 (R, G, B) 或颜色名称
+    thickness: Optional[int] = None  # 线条粗细
+
+
+class DrawBoxesRequest(BaseModel):
+    img: str  # base64 编码的图片字符串
+    boxes: List[Box]  # 框框信息列表
+    line_thickness: Optional[int] = None  # 默认线条粗细
 
 @app.get("/")
 async def get_ui():
@@ -250,6 +263,68 @@ async def get_processing_config():
     except Exception as e:
         logger.error(f"获取配置失败: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to get configuration: {str(e)}")
+
+
+@app.post("/draw-boxes")
+async def draw_colored_boxes(request: DrawBoxesRequest):
+    """
+    在图像上绘制彩色框框
+    """
+    try:
+        logger.info(f"开始绘制彩色框框，框框数量: {len(request.boxes)}")
+
+        # 导入图像绘制器
+        from .processing.drawing import ImageDrawer
+        image_drawer = ImageDrawer()
+
+        # 准备框框数据
+        boxes_data = []
+        for box in request.boxes:
+            box_data = {
+                "points": box.points,
+                "color": box.color if box.color is not None else (255, 0, 0),  # 默认红色
+                "thickness": box.thickness
+            }
+            boxes_data.append(box_data)
+
+        # 转换图像数据
+        img_data = request.img
+        if img_data.startswith('data:image/'):
+            img_data = img_data.split(',')[1]
+
+        # 使用图像绘制器绘制框框
+        result_image = image_drawer.draw_colored_boxes(
+            image=img_data,
+            boxes=boxes_data,
+            line_thickness=request.line_thickness
+        )
+
+        # 转换回PIL图像
+        from .processing.utils import ImageUtils
+        image_utils = ImageUtils()
+        result_pil_image = image_utils.cv2_to_pil(result_image)
+
+        # 将处理后的图片转换为字节流
+        output_buffer = io.BytesIO()
+        result_pil_image.save(output_buffer, format='JPEG', quality=95, optimize=True)
+        processed_image_bytes = output_buffer.getvalue()
+
+        logger.info(f"彩色框框绘制完成，输出大小: {len(processed_image_bytes)} bytes")
+
+        # 返回处理后的图片
+        return Response(
+            content=processed_image_bytes,
+            media_type="image/jpeg",
+            headers={
+                "Content-Disposition": "inline; filename=image_with_boxes.jpg",
+                "X-Processing-Info": f"Successfully drew {len(request.boxes)} boxes"
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"绘制彩色框框失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Drawing colored boxes failed: {str(e)}")
+
 
 if __name__ == "__main__":
     import uvicorn
