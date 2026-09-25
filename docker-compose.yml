@@ -6,9 +6,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PYTHONUNBUFFERED=1
-      - PYTHONPATH=/app/src
-    volumes:
-      - ./src:/app/src
-      - ./static:/app/static
+      - PORT=8000
+      - MAX_DIM=2000
+      - RUST_LOG=info
     restart: unless-stopped

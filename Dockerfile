@@ -1,31 +1,13 @@
-# 使用官方Python运行时作为父镜像
-FROM python:3.11-slim-bullseye
-
-# 设置工作目录
+# DocuScan 白底 API（Rust 版）
+FROM rust:1-slim AS builder
 WORKDIR /app
+COPY Cargo.toml Cargo.lock ./
+COPY src/ ./src/
+RUN cargo build --release
 
-RUN apt-get update && apt-get install -y \
-    libgl1-mesa-glx \
-    libglib2.0-0 \
-    libsm6 \
-    libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libgtk-3-0 \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install uv
-
-# 复制项目文件
-COPY . .
-
-RUN uv pip install --no-cache --system -r requirements.lock
-
-# 暴露端口
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/target/release/docuscan /usr/local/bin/docuscan
+ENV PORT=8000 MAX_DIM=2000
 EXPOSE 8000
-
-WORKDIR /app
-
-# 启动命令
-CMD ["python", "-m", "uvicorn", "docuscan.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["docuscan"]
