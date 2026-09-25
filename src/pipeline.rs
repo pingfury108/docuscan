@@ -29,13 +29,6 @@ impl Mode {
         }
     }
 
-    // 中值窗口半径（窗口 = 2r+1）
-    fn radius(self) -> usize {
-        match self {
-            Self::Natural => 7,
-            Self::Balanced | Self::Ultra => 12,
-        }
-    }
     fn target(self) -> f32 {
         match self {
             Self::Natural => 244.0,
@@ -75,15 +68,14 @@ pub fn whiten(rgb: Vec<u8>, w: u32, h: u32, mode: Mode, max_dim: u32) -> Process
         return Processed { data: rgb, w, h };
     }
 
-    // 1-3) 光照归一化：max(R,G,B) 光照图 → 大核中值估计背景 → 同增益除法。
-    // balanced/ultra 启用自适应 cap：存在正常白纸时放开增益上限，深阴影一步平坦化
+    // 1-3) 光照归一化 + 选择性白化：低频光照场估计 → 除法去除光照不均 →
+    // 仅把接近纸张亮度的像素推向 target（插图中间调保留，不被冲淡）
     let target = mode.target();
     let mut out = rgb;
     illumination_pass(
         &mut out,
         w as usize,
         h as usize,
-        mode.radius(),
         target,
         mode.max_gain(),
         mode.gray_balance(),
@@ -134,14 +126,16 @@ pub fn whiten(rgb: Vec<u8>, w: u32, h: u32, mode: Mode, max_dim: u32) -> Process
     }
 }
 
-/// 单轮光照归一化：out = c * target / median(illum)，增益 clamp [1.0, cap]。
-/// adaptive_cap：场景存在正常白纸（P95(bg)≥170）时放开 cap 到 4.2，
-/// 允许深阴影一步平坦化（暗区噪声绝对值小，可接受）；整体暗图维持保守 cap 防洗白。
+/// 光照归一化 + 选择性白化：
+/// 1) 低频光照场 L：强下采样 + 大核中值 + 上采样。下采样后插图/文字在小图上只剩几个像素，
+///    被中值滤除，光照场只含光照不均——插图灰块不会进入背景场被误白化。
+/// 2) base_gain = white_ref / L：除法归一化，所有内容恢复“亮区时的亮度”（纸均匀、插图恢复灰度）
+/// 3) alpha 白化：仅接近纸张亮度的像素被推向 target（插图中间调 alpha=0 完全保留）
+/// adaptive_cap：场景存在正常白纸（white_ref≥170）时放开上限到 4.2，深阴影一步平坦化。
 fn illumination_pass(
     out: &mut [u8],
     w: usize,
     h: usize,
-    radius: usize,
     target: f32,
     max_gain: f32,
     adaptive_cap: bool,
@@ -152,15 +146,19 @@ fn illumination_pass(
         let p = i * 3;
         illum[i] = out[p].max(out[p + 1]).max(out[p + 2]);
     }
-    let bg = ops::median_blur(&illum, w, h, radius);
-    let cap = if adaptive_cap {
-        let hist = bg.par_iter().fold(
+    let l_field = lowfreq_illumination(&illum, w, h);
+
+    // 全局纸张参考亮度（P90：纸张在文档图中占多数且在亮端）
+    let hist = l_field
+        .par_iter()
+        .fold(
             || [0u32; 256],
             |mut hh, &v| {
                 hh[v as usize] += 1;
                 hh
             },
-        ).reduce(
+        )
+        .reduce(
             || [0u32; 256],
             |mut a, b| {
                 for i in 0..256 {
@@ -169,20 +167,57 @@ fn illumination_pass(
                 a
             },
         );
-        let p95 = hist_percentile(&hist, n as u32, 0.95);
-        if p95 >= 170 { 4.2 } else { max_gain }
+    let white_ref = hist_percentile(&hist, n as u32, 0.90).max(60) as f32;
+    let cap = if adaptive_cap && white_ref >= 170.0 {
+        4.2
     } else {
         max_gain
     };
+
+    // 白化调制区间：[lo, hi] 之间从 0 过渡到全推；低于 lo（插图/文字）保持不动
+    let lo = white_ref * 0.78;
+    let hi = white_ref * 0.93;
+    let push = target / white_ref;
+
     out.par_chunks_exact_mut(3)
-        .zip(bg.par_iter())
-        .for_each(|(px, &b)| {
-            let gain = (target / (b as f32).max(1.0)).clamp(1.0, cap);
+        .zip(illum.par_iter())
+        .zip(l_field.par_iter())
+        .for_each(|((px, &il), &lf)| {
+            let base = white_ref / (lf as f32).max(1.0);
+            // 用归一化后的亮度调制白化：阴影区的纸恢复后同样是纸（要推白），
+            // 插图恢复后仍是中间调（保留）
+            let lum_after = il as f32 * base;
+            let alpha = smoothstep(lo, hi, lum_after);
+            let boost = 1.0 + alpha * (push - 1.0);
+            let gain = (base * boost).clamp(1.0, cap);
             for c in px {
                 let v = (*c as f32) * gain;
                 *c = if v >= 255.0 { 255 } else { v as u8 };
             }
         });
+}
+
+/// 低频光照场：强下采样（1/8）→ 大核中值 → 上采样回全尺寸。
+/// 下采样后插图/文字等局部内容尺度过小被滤除，只保留光照不均。
+fn lowfreq_illumination(illum: &[u8], w: usize, h: usize) -> Vec<u8> {
+    const DS: usize = 8;
+    let sw = (w / DS).max(16);
+    let sh = (h / DS).max(16);
+    let img = match image::GrayImage::from_raw(w as u32, h as u32, illum.to_vec()) {
+        Some(i) => i,
+        None => return illum.to_vec(),
+    };
+    let small =
+        image::imageops::resize(&img, sw as u32, sh as u32, image::imageops::FilterType::Triangle);
+    // 小图中值核：覆盖小图约 1/4 宽度 ≈ 全图 2 倍下采样宽度，足以滤掉 <200px 的插图块
+    let radius = (sw / 8).max(3);
+    let filtered = ops::median_blur(small.as_raw(), sw, sh, radius);
+    let small_img = match image::GrayImage::from_raw(sw as u32, sh as u32, filtered) {
+        Some(i) => i,
+        None => return illum.to_vec(),
+    };
+    image::imageops::resize(&small_img, w as u32, h as u32, image::imageops::FilterType::Triangle)
+        .into_raw()
 }
 
 fn resize_if_needed(rgb: Vec<u8>, w: u32, h: u32, max_dim: u32) -> (Vec<u8>, u32, u32) {
